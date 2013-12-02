@@ -5,4 +5,5 @@ I've included starter packs in listed folders, feel free to include your own. Fo
 
 ## TODO
   * format this README properly     
+  * fix pathfinding to move around walls (use some kind of bfs, astar)
   
