@@ -20,6 +20,7 @@ class MyBot:
         # initialize data structures after learning the game settings
         self.hills = []
         self.unseen = []
+        self.max_time = 0
         for row in range(ants.rows):
             for col in range(ants.cols):
                 self.unseen.append((row, col))
@@ -30,6 +31,7 @@ class MyBot:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants):
+        start_time = int(round(time.time()*1000))
         targets = {}
         orders = {} 
         food = ants.food()
@@ -50,11 +52,17 @@ class MyBot:
                 return True
             else:
                 return False
+
+        def isMyAnt(loc):
+            if loc in ants.my_ants():
+                return True
+            else:
+                return False
                 
         def bfs(init_loc, goalfun):
             ##millis = int(round(time.time()*10000))
             visited = []
-            start = (init_loc, [])
+            start = (init_loc, [], 0)
             if goalfun(init_loc):
                 return []
             frontier = util.Queue()
@@ -67,12 +75,12 @@ class MyBot:
                     path.append(direction)
                     if goalfun(loc):
                         ##logging.warning(str( int(round(time.time()*10000)) - millis ))
-                        return path
+                        return (path, loc, current[2])
                     if not loc in visited:
                         visited.append(loc)
-                        frontier.push((loc, path))
+                        frontier.push((loc, path, current[2] + 1))
             ## return that there is no valid path
-            return []
+            return ([], None, None)
 
         '''
         ## if it can, will move towards a destination and add it to
@@ -84,11 +92,22 @@ class MyBot:
                 return True
             return False
             '''
+
+        def opposite_direction(direction):
+            if direction == 'n':
+                return 's'
+            if direction == 's':
+                return 'n'
+            if direction == 'e':
+                return 'w'
+            if direction == 'w':
+                return 'e'
+
         ## if it can, will move to the position in the parameter
         ## direction and record that to orders
         def do_move_direction(loc, direction):
             new_loc = ants.destination(loc,direction)
-            if(ants.unoccupied(new_loc) and new_loc not in orders):
+            if(ants.unoccupied(new_loc) and new_loc not in orders and loc not in orders.values()):
                 ants.issue_order((loc,direction))
                 orders[new_loc] = loc
                 return True
@@ -100,17 +119,41 @@ class MyBot:
         for hill_loc in ants.my_hills():
             orders[hill_loc] = None
             '''
-        #default move : move to food, while avoiding collisions
-        if len(food) > 0:
+        missions = {}
+        ## Hills
+        bad_hills = ants.enemy_hills()
+        for hill in bad_hills:
+            if hill not in self.hills:
+                self.hills.append(hill)
+        for hill_loc, team_num in self.hills: 
+            path, ant_loc, depth = bfs(hill_loc, isMyAnt)
+            if len(path) > 0:
+                ## must use opposite direction because we did path in
+                ## reverse (hill -> ant)
+                if do_move_direction(ant_loc, opposite_direction(path[len(path)-1])):
+                    missions[hill_loc] = ant_loc
+
+        ## Food            
+        for food_loc in food:
+            path, ant_loc, depth = bfs(food_loc, isMyAnt)
+            if len(path) > 0:
+                ## must use opposite direction because we did path in
+                ## reverse (food -> ant)
+                if do_move_direction(ant_loc, opposite_direction(path[len(path)-1])):
+                    missions[food_loc] = ant_loc
+
+        ## Move towards an ant with orders 
+        if len(missions) > 0:
             for ant_loc in ants.my_ants():
-                path = bfs(ant_loc, isFood)
-                if len(path) < 1:
-                    for direction in ('n', 'e', 'w', 's'):
-                        if do_move_direction(ant_loc, direction):
-                            break
-                else:
-                    do_move_direction(ant_loc, path[0])
-        logging.warning("done turn")
+                if ant_loc not in missions.values():
+                    path, goal_loc, depth = bfs(ant_loc, lambda x: x in missions.values())
+                    if len(path) > 0:
+                        do_move_direction(ant_loc, path[0])
+        end_time = int(round(time.time()*1000))
+        diff = end_time - start_time
+        if self.max_time < diff:
+            self.max_time = diff
+        logging.warning("turn done, time: "+ str(end_time - start_time))
         '''
         ## attack enemy hills 
         for hill_loc, hill_owner in ants.enemy_hills():
@@ -172,7 +215,9 @@ if __name__ == '__main__':
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(MyBot())
+        bot = MyBot() 
+        Ants.run(bot)
+        logging.warning(str(bot.max_time))
     except KeyboardInterrupt:
         print('ctrl-c, leaving ...')
 
