@@ -1,1 +1,1 @@
-python tools/playgame.py "python MikeBot.py" "python tools/sample_bots/python/HunterBot.py" --map_file tools/maps/cell_maze/cell_maze_p02_12.map --log_dir game_logs --scenario --player_seed 7 -e --turntime 30000
+python tools/playgame.py "python MikeBot.py" "python tools/sample_bots/python/HunterBot.py" --map_file tools/maps/cell_maze/cell_maze_p02_12.map --log_dir game_logs --scenario --player_seed 7 -e --turntime 60000 --turns 300

@@ -20,12 +20,14 @@ class MyBot:
         # initialize data structures after learning the game settings
         self.hills = []
         self.unseen = []
+        self.paths = {}
         self.max_time = 0
+        self.turn_num = 1
+        self.missions = {}
         for row in range(ants.rows):
             for col in range(ants.cols):
                 self.unseen.append((row, col))
-
-
+        self.hill_distances = {}
 
     # do turn is run once per turn
     # the ants class has the game state and is updated by the Ants.run method
@@ -35,7 +37,7 @@ class MyBot:
         targets = {}
         orders = {} 
         food = ants.food()
-
+        my_ants = ants.my_ants()
 
         def get_neighbors(loc):
             directions = ['e', 'w', 'n', 's']
@@ -54,33 +56,61 @@ class MyBot:
                 return False
 
         def isMyAnt(loc):
-            if loc in ants.my_ants():
+            if loc in my_ants:
                 return True
             else:
                 return False
                 
         def bfs(init_loc, goalfun):
-            ##millis = int(round(time.time()*10000))
             visited = []
             start = (init_loc, [], 0)
             if goalfun(init_loc):
-                return []
+                return ([], init_loc, 0)
+            frontier = util.Queue()
+            frontier.push(start)
+            visited.append(init_loc)
+            while not frontier.isEmpty():
+                cur_loc, cur_path, cur_depth = frontier.pop()
+                if goalfun(cur_loc):
+                    return (cur_path, cur_loc, cur_depth)
+                for loc, direction in get_neighbors(cur_loc):
+                    path = [x for x in cur_path]
+                    path.append(direction)
+                    if not loc in visited:
+                        visited.append(loc)
+                        frontier.push((loc, path, cur_depth + 1))
+            ## return that there is no valid path
+            return ([], None, None)
+
+        ## bfs that returns a path to the closest position at limited
+        ## depth with the smallest distance, according to distfun
+        def depth_limited_bfs(init_loc, goalfun, depth_limit, distfun):
+            visited = []
+            edge = util.PriorityQueue()
+            edge.push(([], init_loc, 0), 99999)
+            start = (init_loc, [], 0)
+            if goalfun(init_loc):
+                return ([], init_loc, 0)
             frontier = util.Queue()
             frontier.push(start)
             visited.append(start[0])
             while not frontier.isEmpty():
-                current = frontier.pop()
-                for loc, direction in get_neighbors(current[0]):
-                    path = [x for x in current[1]]
-                    path.append(direction)
-                    if goalfun(loc):
-                        ##logging.warning(str( int(round(time.time()*10000)) - millis ))
-                        return (path, loc, current[2])
-                    if not loc in visited:
-                        visited.append(loc)
-                        frontier.push((loc, path, current[2] + 1))
-            ## return that there is no valid path
-            return ([], None, None)
+                cur_loc, cur_path, cur_depth = frontier.pop()
+                ## add in a distfun call for access to the depth
+                distfun(cur_loc, cur_depth)
+                if goalfun(cur_loc):
+                    return (cur_path, cur_loc, cur_depth)
+                if cur_depth < depth_limit:
+                    for loc, direction in get_neighbors(cur_loc):
+                        path = [x for x in cur_path]
+                        path.append(direction)
+                        if not loc in visited:
+                            visited.append(loc)
+                            frontier.push((loc, path, cur_depth + 1))
+                else:
+                    edge.push( (cur_path, cur_loc, cur_depth), distfun(cur_loc, cur_depth))
+            return edge.pop()
+            ##
 
         '''
         ## if it can, will move towards a destination and add it to
@@ -114,46 +144,101 @@ class MyBot:
             else:
                 return False
 
+        def exec_paths():
+            for ant_loc in self.paths.keys():
+                path = self.paths.pop(ant_loc)
+                goal = self.missions.pop(ant_loc)
+                ##logging.warning("Taking path from: " + str(ant_loc))
+                if do_move_direction(ant_loc, path[0]):
+                    if len(path) > 1:
+                        new_loc = ants.destination(ant_loc, path[0])
+                        self.paths[new_loc] = path[1:]
+                        self.missions[new_loc] = goal
+             
+        def record_distance(loc, depth):
+            self.hill_distances[loc] = depth
+            return 0
+
+        def move_to_hill(ant_loc):
+            directions = sorted( ['n', 'e', 'w', 's'], key = lambda d: self.hill_distances[ ants.destination(ant_loc, d) ])
+            for d in directions:
+                if do_move_direction(ant_loc, d):
+                    return True
+            return False
+                
+
             '''
         # prevent stepping on own hill
         for hill_loc in ants.my_hills():
             orders[hill_loc] = None
             '''
-        missions = {}
-        ## Hills
-        bad_hills = ants.enemy_hills()
+        ## remove ants that already have paths from consideration and
+        ## execute paths
+
+        my_ants = [x for x in my_ants if x not in self.paths.keys()]
+        exec_paths()
+        
+        ## Find hills
+        bad_hills = [hill_loc for hill_loc, team_num in ants.enemy_hills()]
         for hill in bad_hills:
             if hill not in self.hills:
+                logging.warning("Found their hill!: " + str(hill))
                 self.hills.append(hill)
-        for hill_loc, team_num in self.hills: 
-            path, ant_loc, depth = bfs(hill_loc, isMyAnt)
-            if len(path) > 0:
-                ## must use opposite direction because we did path in
-                ## reverse (hill -> ant)
-                if do_move_direction(ant_loc, opposite_direction(path[len(path)-1])):
-                    missions[hill_loc] = ant_loc
+                ## create a member of self.hill_distances
+                dummy = depth_limited_bfs(hill_loc, lambda x: False, 1000, record_distance)
+        
+        ## If past critical mass then attack enemy hills
+        if len(my_ants) + len(self.paths.keys()) > 20 and len(self.hills) > 0:
+            for ant_loc in my_ants:
+                move_to_hill(ant_loc)
+                '''
+                path, hill_loc, dist = depth_limited_bfs(ant_loc, lambda x: x in self.hills, 10, lambda x: ants.distance(x, self.hills[0]))
+                if len(path) > 0:
+                    if do_move_direction(ant_loc, path[0]):
+                        ##logging.warning("Attacking Hill: " + str(ant_loc) + " -> " + str(hill_loc))
+                        new_loc = ants.destination(ant_loc, path[0])
+                        self.missions[new_loc] = hill_loc
+                        self.paths[new_loc] = path[1:]
+                        '''
 
         ## Food            
-        for food_loc in food:
-            path, ant_loc, depth = bfs(food_loc, isMyAnt)
+        for ant_loc in my_ants:
+            path, food_loc, depth = bfs(ant_loc, lambda x: x in food and x not in self.missions.keys())
             if len(path) > 0:
-                ## must use opposite direction because we did path in
-                ## reverse (food -> ant)
-                if do_move_direction(ant_loc, opposite_direction(path[len(path)-1])):
-                    missions[food_loc] = ant_loc
+                if do_move_direction(ant_loc, path[0]):
+                    ##logging.warning("Getting food: " + str(ant_loc) + " -> " + str(food_loc))
+                    new_loc = ants.destination(ant_loc, path[0])
+                    self.missions[new_loc] = food_loc
+                    self.paths[new_loc] = path[1:]
 
-        ## Move towards an ant with orders 
-        if len(missions) > 0:
-            for ant_loc in ants.my_ants():
-                if ant_loc not in missions.values():
-                    path, goal_loc, depth = bfs(ant_loc, lambda x: x in missions.values())
-                    if len(path) > 0:
-                        do_move_direction(ant_loc, path[0])
+
+
+        ## Explore 
+        if len(self.unseen) == 0:
+            for row in range(ants.rows):
+                for col in range(ants.cols):
+                    self.unseen.append((row, col))
+        for loc in self.unseen[:]:
+            if ants.visible(loc):
+                self.unseen.remove(loc)
+        for ant_loc in my_ants: 
+            if ant_loc not in orders.values():
+                path, location, distance = bfs(ant_loc, lambda x: x in self.unseen and x not in self.missions.keys())
+                if len(path) > 0:
+                    if do_move_direction(ant_loc, path[0]):
+                        ##logging.warning("Exploring: " + str(ant_loc) + " -> " + str(food_loc))
+                        new_loc = ants.destination(ant_loc, path[0])
+                        self.missions[new_loc] = location
+                        self.paths[new_loc] = path[1:]
+        
+
+        
         end_time = int(round(time.time()*1000))
         diff = end_time - start_time
         if self.max_time < diff:
             self.max_time = diff
-        logging.warning("turn done, time: "+ str(end_time - start_time))
+        logging.warning("turn " + str(self.turn_num) +", time: "+ str(end_time - start_time))
+        self.turn_num = self.turn_num + 1
         '''
         ## attack enemy hills 
         for hill_loc, hill_owner in ants.enemy_hills():
@@ -161,7 +246,7 @@ class MyBot:
                 self.hills.append(hill_loc)
         ant_dist = []
         for hill_loc in self.hills:
-            for ant_loc in ants.my_ants():
+            for ant_loc in my_ants:
                 if ant_loc not in orders.values():
                     dist = ants.distance(ant_loc, hill_loc)
                     ant_dist.append((dist, ant_loc, hill_loc))
@@ -173,7 +258,7 @@ class MyBot:
         for loc in self.unseen[:]:
             if ants.visible(loc):
                 self.unseen.remove(loc)
-        for ant_loc in ants.my_ants():
+        for ant_loc in my_ants:
             if ant_loc not in orders.values():
                 unseen_dist = []
                 for unseen_loc in self.unseen:
@@ -187,7 +272,7 @@ class MyBot:
         '''
         # unblock own hill
         for hill_loc in ants.my_hills():
-            if hill_loc in ants.my_ants() and hill_loc not in orders.values():
+            if hill_loc in my_ants and hill_loc not in orders.values():
                 for direction in ('s','e','w','n'):
                     if do_move_direction(hill_loc, direction):
                         break
