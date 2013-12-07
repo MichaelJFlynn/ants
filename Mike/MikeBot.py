@@ -160,7 +160,8 @@ class MyBot:
             return 0
 
         def move_to_hill(ant_loc):
-            directions = sorted( ['n', 'e', 'w', 's'], key = lambda d: self.hill_distances[ ants.destination(ant_loc, d) ])
+            directions = [ d for d in ['n', 'e', 'w', 's'] if ants.passable(ants.destination(ant_loc, d)) ]
+            directions = sorted(directions, key = lambda d: self.hill_distances[ants.destination(ant_loc, d)])
             for d in directions:
                 if do_move_direction(ant_loc, d):
                     return True
@@ -186,7 +187,8 @@ class MyBot:
                 self.hills.append(hill)
                 ## create a member of self.hill_distances
                 dummy = depth_limited_bfs(hill_loc, lambda x: False, 1000, record_distance)
-        
+                logging.warning(str(self.hill_distances))
+                sys.exit()
         ## If past critical mass then attack enemy hills
         if len(my_ants) + len(self.paths.keys()) > 20 and len(self.hills) > 0:
             for ant_loc in my_ants:
