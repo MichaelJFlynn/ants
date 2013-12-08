@@ -1,0 +1,1 @@
+{"playernames": ["MikeBot.py", "HunterBot.py"], "error": "Traceback (most recent call last):\n  File \"/home/cs-students/15mjf2/Desktop/ants/Mike/tools/engine.py\", line 172, in run_game\n    error_logs[b].write(unicode('\\n').join(errors)+unicode('\\n'))\nValueError: I/O operation on closed file\n"}
