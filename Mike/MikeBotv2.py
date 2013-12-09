@@ -225,7 +225,7 @@ class MyBot:
                     if len(enemy_ants) > len(friendly_ants):
                         ## if there are more enemies than us we run
                         directions = ['n', 'e', 'w', 's']
-                        directions = sorted(directions, key = lambda x: 1./min([ants.distance(ants.destination(ant_loc, x), enemy) for enemy in enemy_ants]))
+                        directions = sorted(directions, key = lambda x: 1./(min([ants.distance(ants.destination(ant_loc, x), enemy) for enemy in enemy_ants])+1))
                         for d in directions:
                             if do_move_direction(ant_loc, d):
                                 break
@@ -237,9 +237,12 @@ class MyBot:
                                 break
    
         def fight2():
-            ## minimax!
+            ## minimax for one turn
             for area in self.areas:
-                return
+                friendly_ants = [ant_loc for ant_loc in ants.my_ants() if ant_loc in area]
+                enemy_ants = [ant_loc for ant_loc, team in ants.enemy_ants() if ant_loc in area]
+                minimax_battle(friendly_ants, enemy_ants)
+
 
         '''
         # prevent stepping on own hill

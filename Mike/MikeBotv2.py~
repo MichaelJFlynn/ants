@@ -237,9 +237,12 @@ class MyBot:
                                 break
    
         def fight2():
-            ## minimax!
+            ## minimax for one turn
             for area in self.areas:
-                return
+                friendly_ants = [ant_loc for ant_loc in ants.my_ants() if ant_loc in area]
+                enemy_ants = [ant_loc for ant_loc, team in ants.enemy_ants() if ant_loc in area]
+                minimax_battle(friendly_ants, enemy_ants)
+
 
         '''
         # prevent stepping on own hill

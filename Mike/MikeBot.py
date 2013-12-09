@@ -24,6 +24,7 @@ class MyBot:
         self.max_time = 0
         self.turn_num = 1
         self.missions = {}
+        self.areas = []
         for row in range(ants.rows):
             for col in range(ants.cols):
                 self.unseen.append((row, col))
@@ -149,6 +150,9 @@ class MyBot:
             for ant_loc in self.paths.keys():
                 path = self.paths.pop(ant_loc)
                 goal = self.missions.pop(ant_loc)
+                if len(path) < 1: 
+                    logging.warning("No path from " + str(ant_loc))
+                    sys.exit()
                 ##logging.warning("Taking path from: " + str(ant_loc))
                 if do_move_direction(ant_loc, path[0]):
                     if len(path) > 1:
@@ -173,16 +177,182 @@ class MyBot:
                     new_loc = ants.destination(ant_loc, path[0])
                     self.missions[new_loc] = hill_loc
                     self.paths[new_loc] = path[1:]
+        
+        def add_area(loc, depth, origin):
+            ## check which area contains the origin
+            ## add this location to that area
+            for area in self.areas:
+                if origin in area:
+                    if not loc in area:
+                        area.append(loc)
+                        ## check if location is enemy or friend
+                        ## and expand area
+                        if loc in ants.my_ants() or loc in [enemy for enemy, team in ants.enemy_ants()]:
+                            depth_limited_bfs(loc, lambda x: False, 3, lambda x,y: add_area(x,y, loc))
 
-            '''
+            ## check if location is already in one or more areas
+            check_duplicates = [i for i in range(len(self.areas)) if loc in self.areas[i]]
+            ## if so, merge both areas
+            if len(check_duplicates) > 1:
+                logging.warning("merging areas")
+                zero = check_duplicates[0]
+                for i in check_duplicates[1:]:
+                    for moving_loc in self.areas[i]:
+                        if moving_loc not in self.areas[i]:
+                            self.areas[zero].append(moving_loc)
+                for i in check_duplicates[1:]:
+                    self.areas.remove(self.areas[i])
+            
+
+        def create_areas():
+            for enemy_loc, team in ants.enemy_ants():
+                self.areas = [area for area in self.areas if enemy_loc not in area]
+                if not any([enemy_loc in area for area in self.areas]):
+                    self.areas.append([enemy_loc])
+                    depth_limited_bfs(enemy_loc, lambda x: False, 5, lambda x,y: add_area(x,y, enemy_loc))
+        
+        def clean_areas():
+            for area in self.areas:
+                if not any([enemy_loc in area for enemy_loc, team in ants.enemy_ants()]):
+                    self.areas.remove(area)
+                else:
+                    if not any([friendly in area for friendly in ants.my_ants()]):
+                        self.areas.remove(area)
+
+        def fight():
+            for area in self.areas:
+                friendly_ants = [loc for loc in area if loc in ants.my_ants()]
+                enemy_ants = [loc for loc, team in ants.enemy_ants() if loc in area]
+                for ant_loc in friendly_ants:
+                    if ant_loc in self.paths.keys():
+                        self.paths.pop(ant_loc)
+                    if len(enemy_ants) > len(friendly_ants):
+                        ## if there are more enemies than us we run
+                        directions = ['n', 'e', 'w', 's']
+                        directions = sorted(directions, key = lambda x: 1./(min([ants.distance(ants.destination(ant_loc, x), enemy) for enemy in enemy_ants])+1))
+                        for d in directions:
+                            if do_move_direction(ant_loc, d):
+                                break
+                    else:
+                        directions = ['n', 'e', 'w', 's']
+                        directions = sorted(directions, key = lambda x: sum([ants.distance(ants.destination(ant_loc, x), enemy) for enemy in enemy_ants]))# + [ants.distance(ants.destination(ant_loc, x), friend_loc) for friend_loc in friendly_ants]))
+                        for d in directions:
+                            if do_move_direction(ant_loc, d):
+                                break
+   
+        def minimax_fight():
+            ## minimax for one turn
+            for area in self.areas:
+                friendly_ants = [ant_loc for ant_loc in ants.my_ants() if ant_loc in area]
+                if len(friendly_ants) < 1:
+                    continue
+                enemy_ants = [ant_loc for ant_loc, team in ants.enemy_ants() if ant_loc in area]
+                friendly_ants = sorted(friendly_ants, key = lambda x: min([ants.distance(x, enemy) for enemy in enemy_ants]))[:3]
+                logging.warning(str(friendly_ants))
+                enemy_ants = sorted(enemy_ants, key = lambda x: min([ants.distance(x, friend) for friend in friendly_ants]))[:3]
+                logging.warning(str(enemy_ants))
+                score, changes = minimax_battle(friendly_ants, enemy_ants, len(friendly_ants) + len(enemy_ants))
+                logging.warning("Expected minimax score: " + str(score))
+                for ant in friendly_ants:
+                    if changes[ant] != None:
+                        if not do_move_direction(ant, changes[ant]):
+                            logging.warning("Something went wrong with minimax: " + str(ant) + " " + str(changes[ant]))
+                    else:
+                        orders[ant] = None
+
+        def minimax_battle(friendly_ants, enemy_ants, depth):
+            ## want furthest ants from enemies to go first
+            if(depth == 0):
+                ## simulate turn
+                dead = []
+                score = 0
+                for ant_loc in friendly_ants:
+                    enemies_in_range = [enemy for enemy in enemy_ants if ants.distance(ant_loc, enemy) <= ants.attackradius2]
+                    for enemy in enemies_in_range:
+                        friends_in_range = [friend for friend in friendly_ants if ants.distance(enemy, friend) <= ants.attackradius2]
+                        if len(enemies_in_range) >= len(friends_in_range):
+                            dead.append(ant_loc)
+                            score = score - 5
+                            break
+                for enemy_loc in enemy_ants:
+                    friends_in_range = [friend for friend in friendly_ants if ants.distance(enemy_loc, friend) <= ants.attackradius2]
+                    for friend in friends_in_range:
+                        enemies_in_range = [enemy for enemy in enemy_ants if ants.distance(enemy, friend) <= ants.attackradius2]
+                        if len(friends_in_range) >= len(enemies_in_range):
+                            dead.append(enemy_loc)
+                            score = score + 1
+                            break
+                ## score modifiers:
+                distances = [ants.distance(friend, enemy)**(1./2) for friend in friendly_ants for enemy in enemy_ants if enemy not in dead and friend not in dead]
+                if len(distances) > 0:
+                    score = score - sum(distances)/len(distances)
+                else: score = -1000
+                return (score, {})
+            else:
+                index = len(friendly_ants) + len(enemy_ants) - depth
+                directions = ['n', 'e', 'w', 's']
+                if index < len(friendly_ants):
+                    ## we are maximizing
+                    ## we are working with a friendly member
+                    ant_loc = friendly_ants[index]
+                    max_score = -9999
+                    final_changes = {} 
+                    for direction in directions:
+                        new_loc = ants.destination(ant_loc, direction)
+                        if new_loc in friendly_ants or new_loc in enemy_ants or not ants.passable(new_loc):
+                            continue
+                        new_friendlies = [x for x in friendly_ants]
+                        new_friendlies[index] = new_loc
+                        score, changes = minimax_battle(new_friendlies, enemy_ants, depth -1)
+                        if score > max_score:
+                            max_score = score
+                            final_changes = changes 
+                            final_changes[ant_loc] = direction
+                    ## consider not moving
+                    score, changes = minimax_battle(friendly_ants, enemy_ants, depth - 1)
+                    if score >= max_score:
+                        max_score = score
+                        final_changes = changes
+                        final_changes[ant_loc] = None
+                    ## score modifiers
+                    return (score, final_changes)
+                else: 
+                    ## we are minimizing
+                    index = index - len(friendly_ants)
+                    enemy_loc = enemy_ants[index]
+                    min_score = 9999
+                    final_changes = {}
+                    for direction in directions:
+                        new_loc = ants.destination(enemy_loc, direction)
+                        if new_loc in friendly_ants or new_loc in enemy_ants or not ants.passable(new_loc):
+                            continue
+                        new_enemies = [x for x in enemy_ants]
+                        new_enemies[index] = new_loc
+                        score, changes = minimax_battle(friendly_ants, new_enemies, depth - 1)
+                        if score < min_score:
+                            min_score = score
+                            final_changes = changes
+                            final_changes[enemy_loc] = direction
+                    score, changes = minimax_battle(friendly_ants, enemy_ants, depth - 1) 
+                    if score < min_score:
+                        min_score = score
+                        final_changes = changes
+                        final_changes[enemy_loc] = None
+                    return (score, final_changes)
+                    
+
+        '''
         # prevent stepping on own hill
         for hill_loc in ants.my_hills():
             orders[hill_loc] = None
             '''
+        create_areas()
+        clean_areas()
+        minimax_fight()
+        fight()
         ## remove ants that already have paths from consideration and
         ## execute paths
-
-        my_ants = [x for x in my_ants if x not in self.paths.keys()]
+        my_ants = [x for x in my_ants if x not in self.paths.keys() and x not in orders.values()]
         exec_paths()
         
         ## Find hills
