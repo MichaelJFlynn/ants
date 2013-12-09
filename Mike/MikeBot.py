@@ -259,6 +259,7 @@ class MyBot:
                             logging.warning("Something went wrong with minimax: " + str(ant) + " " + str(changes[ant]))
                     else:
                         orders[ant] = None
+                sys.exit()
 
         def minimax_battle(friendly_ants, enemy_ants, depth):
             ## want furthest ants from enemies to go first
@@ -296,6 +297,7 @@ class MyBot:
                     ## we are working with a friendly member
                     ant_loc = friendly_ants[index]
                     max_score = -9999
+                    scores = {}
                     final_changes = {} 
                     for direction in directions:
                         new_loc = ants.destination(ant_loc, direction)
@@ -304,23 +306,27 @@ class MyBot:
                         new_friendlies = [x for x in friendly_ants]
                         new_friendlies[index] = new_loc
                         score, changes = minimax_battle(new_friendlies, enemy_ants, depth -1)
+                        scores[direction] = score
                         if score > max_score:
                             max_score = score
                             final_changes = changes 
                             final_changes[ant_loc] = direction
                     ## consider not moving
                     score, changes = minimax_battle(friendly_ants, enemy_ants, depth - 1)
+                    scores["stay"] = score
                     if score >= max_score:
                         max_score = score
                         final_changes = changes
                         final_changes[ant_loc] = None
                     ## score modifiers
+                    logging.warning("At depth: " + str(depth) + "\nMaximizing" + "\nscores: " + str(scores) + "\nChose: " + str(final_changes[ant_loc]) + "\n")
                     return (score, final_changes)
                 else: 
                     ## we are minimizing
                     index = index - len(friendly_ants)
                     enemy_loc = enemy_ants[index]
                     min_score = 9999
+                    scores = {}
                     final_changes = {}
                     for direction in directions:
                         new_loc = ants.destination(enemy_loc, direction)
@@ -329,15 +335,18 @@ class MyBot:
                         new_enemies = [x for x in enemy_ants]
                         new_enemies[index] = new_loc
                         score, changes = minimax_battle(friendly_ants, new_enemies, depth - 1)
+                        scores[direction] = score
                         if score < min_score:
                             min_score = score
                             final_changes = changes
                             final_changes[enemy_loc] = direction
                     score, changes = minimax_battle(friendly_ants, enemy_ants, depth - 1) 
+                    scores["stay"] = score
                     if score < min_score:
                         min_score = score
                         final_changes = changes
                         final_changes[enemy_loc] = None
+                    logging.warning("At depth: " + str(depth) + "\nMinimizing" + "\nscores: " + str(scores) + "\nChose: " + str(final_changes[enemy_loc]) + "\n")
                     return (score, final_changes)
                     
 
