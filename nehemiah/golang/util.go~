@@ -1,0 +1,152 @@
+// Util.go - helper class
+package main
+
+import (
+	"container/list"
+	"containter/heap"
+	//"math/rand"
+)
+
+/////////////////////
+// Data Structures //
+/////////////////////
+
+//LIFO Stack built on top of the list structure
+//To initialize :: stack := new(Stack)
+//TODO - implement errror handling for illegal operations
+type Stack struct {
+	data list.List
+}
+
+//Returns size of stack
+func (q *Stack) Len() int { return q.data.Len() }
+
+//Push an item to the front of the stack
+//Returns a reference to the Element container
+func (q *Stack) Push(v interface{}) *list.Element {
+	return q.data.PushFront(v)
+}
+
+//Peek - returns the last pushed element without popping it
+func (q *Stack) Peek() interface{} {
+	return q.data.Front().Value
+}
+
+//Pop - remove and return the last pushed element in the list
+func (q *Stack) Pop() interface{} {
+	return q.data.Remove(q.data.Front())
+}
+
+//General Queue type, implemented on top of list
+//To initialize :: queue := new(Queue)
+type Queue struct {
+	data   list.List
+	exists map[interface{}]bool
+}
+
+//Return size of the queue
+func (q *Queue) Len() int { return q.data.Len() }
+
+//Push item onto queue, and return reference to item just pushed
+func (q *Queue) Push(v interface{}) *list.Element {
+	return q.data.PushBack(v)
+}
+
+//Return reference to next item to be popped without popping
+func (q *Queue) Peek() interface{} {
+	return q.data.Front().Value
+}
+
+func (q *Queue) Pop() interface{} {
+	return q.data.Remove(q.data.Front())
+}
+
+//Item - container for PriorityQueue
+//Implementation taken from godoc
+type Item struct {
+	//value    interface{}
+	value    string
+	priority int
+	index    int
+}
+
+//General type PriorityQueue implemented on top of Go's heap
+//To initialize :: pqueue := new(PQueue)
+//Based on the example from the heap pkg page
+//http://golang.org/pkg/container/heap/#pkg-examples
+type PriorityQueue []*Item
+
+func (pq PriorityQueue) Len() int { return len(pq) }
+
+//Comparison function for the priority queue
+//This implementation means Pop gives the highest priority
+func (pq PriorityQueue) Less(i, j int) bool {
+	return pq[i].priority > pq[j].priority
+}
+
+//Given two indeces, swaps the values
+func (pq PriorityQueue) Swap(i, j int) {
+	pq[i], pq[j] = pq[j], pq[i]
+	pq[i].index = i
+	pq[j].index = j
+}
+
+func (pq *PriorityQueue) Push(v interface{}) {
+	n := len(*pq)
+	item := v.(*Item)
+	item.index = n
+	*pq = append(*pq, item)
+}
+
+func (pq *PriorityQueue) Pop() interface{} {
+	old := *pq
+	n := len(old)
+	item := old[n-1]
+	item.index = -1 // for safety
+	*pq = old[0 : n-1]
+	return item
+}
+
+// update modifies the priority and value of an Item in the queue.
+func (pq *PriorityQueue) update(item *Item, value string, priority int) {
+	heap.Remove(pq, item.index)
+	item.value = value
+	item.priority = priority
+	heap.Push(pq, item)
+}
+
+////////////////
+//Algorithms //
+////////////////
+
+//On the first call to Bfs, an invalid Int should be passed.
+//Anything outside of range 1-5 should work
+func Bfs(obj Item, loc Location, s *State) LocDir {
+	var ret LocDir
+	var depth = 10
+	frontier := new(Queue)
+	frontier.push(loc)
+	var explored map[Location]bool // the keys are only locations
+	// but we use the LocDir structure to preserve the action
+
+	for {
+		if frontier.Len() == 0 || depth < 0 {
+			// this is the equivalent to returning failure
+			// I should probably return a nil somewhere though
+			ret.Loc = loc
+			ret.Dir = NoMovement
+		}
+		curLoc := frontier.Pop()
+		explored[node] = true
+		// Loop over adjacent Locations
+		for locDir := range s.Map.Adjacent(curLoc).Split() {
+			// how to I ask if not ok idiomatically
+			//if _, ok := explored[locDir.Loc] {
+			//
+			//}
+		}
+	}
+
+}
+
+func AStar(start *Location, dest *Location, s *State) { return }
