@@ -1,0 +1,34 @@
+package main
+
+import (
+	"testing"
+)
+
+func TestStack(t *testing.T) {
+	stack := new(Stack)
+
+	stack.Push("first")
+	stack.Push("in")
+	stack.Push("first")
+	stack.Push("out.")
+
+	if stack.Peek() != "first" {
+		t.Errorf("Peek method incorrect.")
+	}
+	if stack.Pop() != "first" {
+		t.Errorf("Pop method incorrect.")
+	}
+
+}
+
+func TestQueue(t *testing.T) { return }
+
+func TestPriorityQueue(t *testing.T) { return }
+
+func TestBFS(t *testing.T) { return }
+
+func BenchmarkTestBFS(t *testing.B) { return }
+
+func TestAstar(t *testing.T) { return }
+
+func BenchmarkAstar(t *testing.B) { return }

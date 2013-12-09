@@ -1,0 +1,68 @@
+* Ants TODO file for go
+** TODO run the starter bot on my computer
+** metrics
+** Strategies
+*** Util algorithms
+**** TODO Improved Queue
+     Implement a queue that has an O(1) time operator to check whether
+     an element is in the queue. This is for the breadth first search
+**** DONE BFS
+     <2013-12-07 Sat>
+     I need to write unit tests for all my util methods very soon
+     I'm not sure that anything is working as expected. 
+     CLOSED: [2013-12-07 Sat 22:32]
+     I'm not sure whether I should store paths in the map structure
+     or if I should just recalculate bfs every time.
+     At the moment, I'm calculating BFS and only returning the very next 
+     step any item needs to take to get to the destination. 
+     
+**** TODO A*
+*** TODO setting areas
+    I wanted to use feature detection to determine chokepoints, 
+    but it seems as if this approach might have too many pitfalls
+    Right now I'm examining xathis' approach. 
+    Xathis runs a bfs from every ant on the map
+
+*** TODO managing even distribution of ants
+    I'm going to copy xathis and give each cell an increasing explore
+    score. The score incrementally increases until an ant brings it back 
+    into it's vision.
+
+*** TODO calculating step distance
+    I want to have a way to calculate the step distance for any 
+    given cell to another cell. I'd also like to store this somehow.
+    This could be really expensive in terms of memory, but it will cut 
+    down on later game runtime considerably. 
+    If I can find a clever algorithm, even better. 
+    
+    I have written a depth limited dfs to build up the map data
+    but I need to test it. A function that could print any given 
+    mapping to a string would be useful for testing. 
+
+*** storing shortest paths efficiently
+    for each valid tile (not water) keep a map of the surrounding tiles.
+    I'm going to start with just 2 tiles in any direction for now. 
+    This map will store values of which direction to go to from the
+    current tile to get the destination tile in the shortest
+    number of steps
+    
+
+    
+
+** implement trivial feature weighing
+
+** <2013-12-05 Thu>
+   I need to write unit tests for the structures in util.go
+** <2013-12-03 Tue>
+   At this point, I need to do the following
+   - finish implementing BFS
+   - give it depth limit
+     - return error in that case
+   - check that types are globally accessible
+     - specifically LocDir defined in map.go
+   - implement the simple spread apart algorithm as a new bot
+
+* Presentation
+** Nehemiah
+   contest, rules
+   calculating death
