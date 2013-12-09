@@ -252,42 +252,46 @@ class MyBot:
                 enemy_ants = sorted(enemy_ants, key = lambda x: min([ants.distance(x, friend) for friend in friendly_ants]))[:3]
                 logging.warning(str(enemy_ants))
                 score, changes = minimax_battle(friendly_ants, enemy_ants, len(friendly_ants) + len(enemy_ants))
-                logging.warning("Expected minimax score: " + str(score))
+                logging.warning("Expected minimax score: " + str(score) + ", " + str(changes[friendly_ants[0]]))
+                if score == -1000 or score == -3:
+                    sys.exit()
                 for ant in friendly_ants:
                     if changes[ant] != None:
                         if not do_move_direction(ant, changes[ant]):
                             logging.warning("Something went wrong with minimax: " + str(ant) + " " + str(changes[ant]))
                     else:
                         orders[ant] = None
-                sys.exit()
-
+                
         def minimax_battle(friendly_ants, enemy_ants, depth):
             ## want furthest ants from enemies to go first
             if(depth == 0):
-                ## simulate turn
+                ## if we are at the bottom of the tree we simulate a
+                ## turn to calculate a score
                 dead = []
                 score = 0
                 for ant_loc in friendly_ants:
-                    enemies_in_range = [enemy for enemy in enemy_ants if ants.distance(ant_loc, enemy) <= ants.attackradius2]
+                    enemies_in_range = [enemy for enemy in enemy_ants if ants.distance(ant_loc, enemy)**2 < ants.attackradius2]
                     for enemy in enemies_in_range:
-                        friends_in_range = [friend for friend in friendly_ants if ants.distance(enemy, friend) <= ants.attackradius2]
+                        friends_in_range = [friend for friend in friendly_ants if ants.distance(enemy, friend)**2 < ants.attackradius2]
                         if len(enemies_in_range) >= len(friends_in_range):
                             dead.append(ant_loc)
                             score = score - 5
                             break
                 for enemy_loc in enemy_ants:
-                    friends_in_range = [friend for friend in friendly_ants if ants.distance(enemy_loc, friend) <= ants.attackradius2]
+                    friends_in_range = [friend for friend in friendly_ants if ants.distance(enemy_loc, friend)**2 <= ants.attackradius2]
                     for friend in friends_in_range:
-                        enemies_in_range = [enemy for enemy in enemy_ants if ants.distance(enemy, friend) <= ants.attackradius2]
+                        enemies_in_range = [enemy for enemy in enemy_ants if ants.distance(enemy, friend)**2 <= ants.attackradius2]
                         if len(friends_in_range) >= len(enemies_in_range):
                             dead.append(enemy_loc)
-                            score = score + 1
+                            score = score + 2
                             break
                 ## score modifiers:
                 distances = [ants.distance(friend, enemy)**(1./2) for friend in friendly_ants for enemy in enemy_ants if enemy not in dead and friend not in dead]
                 if len(distances) > 0:
-                    score = score - sum(distances)/len(distances)
-                else: score = -1000
+                    score = score# - sum(distances)/(len(distances)*max(distances))
+                else:
+                    if len([friendly for friendly in friendly_ants if friendly not in dead]) < 1:
+                        score = -1000
                 return (score, {})
             else:
                 index = len(friendly_ants) + len(enemy_ants) - depth
@@ -319,8 +323,8 @@ class MyBot:
                         final_changes = changes
                         final_changes[ant_loc] = None
                     ## score modifiers
-                    logging.warning("At depth: " + str(depth) + "\nMaximizing" + "\nscores: " + str(scores) + "\nChose: " + str(final_changes[ant_loc]) + "\n")
-                    return (score, final_changes)
+                    ##logging.warning("At depth: " + str(depth) + "\nMaximizing" + "\nscores: " + str(scores) + "\nFriends: " + str(friendly_ants) + "\nEnemies: " + str(enemy_ants) +  "\nChose: " + str(final_changes[ant_loc]) + "\n")
+                    return (max_score, final_changes)
                 else: 
                     ## we are minimizing
                     index = index - len(friendly_ants)
@@ -346,8 +350,8 @@ class MyBot:
                         min_score = score
                         final_changes = changes
                         final_changes[enemy_loc] = None
-                    logging.warning("At depth: " + str(depth) + "\nMinimizing" + "\nscores: " + str(scores) + "\nChose: " + str(final_changes[enemy_loc]) + "\n")
-                    return (score, final_changes)
+                    ##logging.warning("At depth: " + str(depth) + "\nMinimizing" + "\nscores: " + str(scores) + "\nFriends: " + str(friendly_ants) + "\nEnemies: " + str(enemy_ants) +  "\nChose: " + str(final_changes[enemy_loc]) + "\n")
+                    return (min_score, final_changes)
                     
 
         '''
