@@ -190,7 +190,7 @@ class Ants():
         row2, col2 = loc2
         d_col = min(abs(col1 - col2), self.cols - abs(col1 - col2))
         d_row = min(abs(row1 - row2), self.rows - abs(row1 - row2))
-        return d_row + d_col
+        return d_row**2 + d_col**2
 
     def direction(self, loc1, loc2):
         'determine the 1 or 2 fastest (closest) directions to reach a location'
