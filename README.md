@@ -1,9 +1,10 @@
 #Ants AI Project
 
 ## Introduction
-I've included starter packs in listed folders, feel free to include your own. For now, we each have our own folders, and I'm expecting that we can familiarize ourselves with the competition over the break by each making a rudimentary starter bot. Once we get back, we can meet and decide on a language(I'm assuming you all will want to use pythong) and strategies and approach. I'll be properly formatting this
+AI Project that I did with Nehemiah Perimore (www.github.com/nehemiahap). We both created Ants AI's. I've created several versions, to two of them against each other, first clone this repo and run:
 
-## TODO
-  * format this README properly     
-  * fix pathfinding to move around walls (use some kind of bfs, astar)
-  
+`cd <path-to-repo>/Mike`
+
+`./v2vsv3.sh`
+
+Currently this will only run on Mac or Linux. The source code I used is in Mike/MikeBot.py
